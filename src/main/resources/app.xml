@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans default-autowire="byName"
+	xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="http://www.springframework.org/schema/aop 
+		http://www.springframework.org/schema/aop/spring-aop-4.3.xsd
+		http://www.springframework.org/schema/mvc 
+		http://www.springframework.org/schema/mvc/spring-mvc-4.3.xsd
+		http://www.springframework.org/schema/beans 
+		http://www.springframework.org/schema/beans/spring-beans-4.3.xsd
+		http://www.springframework.org/schema/tx 
+		http://www.springframework.org/schema/tx/spring-tx-4.3.xsd
+		http://www.springframework.org/schema/context 
+		http://www.springframework.org/schema/context/spring-context-4.3.xsd">
+	
+	<context:annotation-config></context:annotation-config>
+	<context:component-scan base-package="cn.yx.ly"></context:component-scan>
+	
+	<mvc:resources location="/images/" mapping="/images/**"></mvc:resources>
+	<mvc:resources location="/js/" mapping="/js/**"></mvc:resources>
+	<mvc:resources location="/css/" mapping="/css/**"></mvc:resources>
+	
+	
+	<bean id="viewResolver" class="org.springframework.web.servlet.view.InternalResourceViewResolver" >
+		<property name="prefix" value="/"></property>
+		<property name="suffix" value=".jsp" ></property>
+	</bean>
+	
+	<!-- 数据源 -->
+	<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" >
+		<property name="driverClassName" value="oracle.jdbc.driver.OracleDriver" ></property>
+		<property name="url" value="jdbc:oracle:thin:@localhost:1521:ORCL" ></property>
+		<property name="username" value="zhangsan" ></property>
+		<property name="password" value="abc" ></property>
+	</bean>
+	
+	<!-- 连接工厂 -->
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean" >
+		<property name="dataSource" ref="dataSource" ></property>
+		<property name="configLocation" value="classpath:mybatis_config.xml" ></property>
+	</bean>
+	
+	
+	<bean  class="org.mybatis.spring.mapper.MapperScannerConfigurer" >
+		<property name="sqlSessionFactoryBeanName" value="sqlSessionFactory" ></property>
+		<property name="basePackage" value="cn.yx.ly.dao" ></property>
+	</bean>
+	
+	<!-- 配置自定义类型转换器
+		1.准备一个转换器类，该类必须实现Converter接口
+		2.准备转化器操作对象，并把自定义的转换器类对象注入该操作对象中；
+		3.MVC注解驱动时，引入该转换器操作对象
+	 -->
+	<mvc:annotation-driven conversion-service="myconverter" ></mvc:annotation-driven>
+	<bean id="myconverter" class="org.springframework.context.support.ConversionServiceFactoryBean" >
+		<property name="converters">
+			<list>
+				<ref bean="myDateConvter" />
+			</list>
+		</property>
+	</bean>
+	
+	<!-- 还需要准备一个文件上传操作对象 -->
+	<bean id="multipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver" >
+		<property name="defaultEncoding" value="utf-8" ></property>
+	</bean>
+	
+	
+	<!-- 配置拦截器 -->
+	<!-- <mvc:interceptors>
+		<bean class="cn.yx.ly.util.LoginIntercepter" ></bean>
+	</mvc:interceptors> -->
+	
+	<!-- <bean id="li" class="cn.yx.ly.util.LoginIntercepter" ></bean>
+	<mvc:interceptors>
+		<ref bean="li" />
+	</mvc:interceptors> -->
+	
+	<mvc:interceptors>
+		<mvc:interceptor>
+			<mvc:mapping path="/**"/><!-- 指定拦截的范围，**表示拦截的范围包含了目录下的内容 -->
+			<!-- <mvc:exclude-mapping path="/uc/**"/> --><!-- 上一步的拦截范围内，排除某一部分请求，不进拦截器 -->
+			<bean class="cn.yx.ly.util.LoginIntercepter"></bean>
+		</mvc:interceptor>
+		<!-- <mvc:interceptor></mvc:interceptor> -->
+	</mvc:interceptors>
+	
+	
+	
+	<!-- 事务配置
+		两种方式：xml中配文件的方式;注解的方式
+	
+	 -->
+	
+	<!-- 
+		配置文件的方式:
+		1.准备事务处理的对象
+		2.制定事务管理的规则
+		3.指定事务作用的范围
+	 -->
+	<!-- 事务管理对象 -->
+	<!-- <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dataSource" ></property>
+	</bean> -->
+	
+	<!-- 事务管理规则 -->
+	<!-- 
+		name : 表示指定的方法名
+		isolation : 事务的隔离级别;
+			READ_COMMITTED : 事务没提交，其他事务不允许读取该事务中的数据;
+			READ_UNCOMMITTED  : 事务没提交，其他事务可以读取该事务中的数据
+		propagation : 事务的传播行为
+			REQUIRED : 表示如果当前已经有事务了，就直接使用当前事务；如果当前没有事务，就开启一个新的事务;
+			REQUIRES_NEW : 不管当前是否存在事务，都开启一个新的事务;
+			NOT_SUPPORTED  :不需要开启事务
+		
+		read-only : 事务是否是只读事务
+			如果是只读事务，那么在该事务中，不允许出现增，删，改操作
+		
+		no-rollback-for : 指定异常发生的时候，不回滚
+		
+		rollback-for : 指定异常发生的时候，就回滚
+		
+		timeout : 事务开启后，处理时间如果超过指定时间，就回滚
+	 -->
+	<!-- <tx:advice id="adv" transaction-manager="transactionManager" >
+		<tx:attributes>
+			<tx:method name="buy*" isolation="READ_COMMITTED" propagation="REQUIRED" timeout="-1" no-rollback-for="" read-only="false" rollback-for="cn.yx.ly.util.StoreHouseLessException" />
+			<tx:method name="buy*" rollback-for="" />
+		</tx:attributes>
+	</tx:advice> -->
+	
+	<!-- 指定事务作用范围 -->
+	<!-- <aop:config>
+		<aop:pointcut expression="execution(* cn.yx.ly.service.IUserService.*(..))" id="us"/>
+		<aop:advisor advice-ref="adv" pointcut-ref="us" />
+	</aop:config> -->
+	
+	
+	
+	
+	<!-- 注解方式实现事务 -->
+	<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager" >
+		<property name="dataSource" ref="dataSource" ></property>
+	</bean>
+	
+	<tx:annotation-driven transaction-manager="transactionManager" />
+	
+</beans>
